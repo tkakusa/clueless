@@ -26,18 +26,17 @@ class Clueless:
         self.COL_3 = self.COL_0 + 3 * self.ROOM_DIMENSIONS
         self.COL_4 = self.COL_0 + 4 * self.ROOM_DIMENSIONS
 
-        # Menu location parameters
-        self.LOGO_X = (self.SCREEN_WIDTH - 1650) / 2
-        self.LOGO_Y = (self.SCREEN_HEIGHT - 1275) / 2
+        # Load Images
+        self.logo_image = pygame.image.load('images\logo2.png')
+        self.house_image = pygame.image.load('images\house.jpg')
+        self.start_image = pygame.image.load('images\start.png')
+
+        # Update the images
+        self.update_images()
 
         # State enums
         self.game_state = "MENU"
         self.menu_state = "OPENING"
-
-        # Load Images
-        self.logo_image = pygame.image.load('images\logo2.png')
-        self.house_image = pygame.image.load('images\house.jpg')
-        self.house_image = pygame.transform.scale(self.house_image, (self.SCREEN_WIDTH, self.SCREEN_HEIGHT))
 
         # Initialize the pygame module
         pygame.init()
@@ -48,9 +47,33 @@ class Clueless:
         # Create the actual screen
         self.screen = pygame.display.set_mode((1920, 1080), pygame.RESIZABLE)
 
-        # Draw the map
-        # self.draw_map()
-        
+    def update_images(self):
+        ## Transform images ##
+        # Logo image
+        logo_width = int(self.SCREEN_WIDTH * .6)
+        logo_height = int(logo_width / 7)
+        self.logo_image = pygame.transform.scale(self.logo_image, (logo_width, logo_height))
+
+        # House image
+        self.house_image = pygame.transform.scale(self.house_image, (self.SCREEN_WIDTH, self.SCREEN_HEIGHT))
+
+        # Start image
+        start_width = int(self.SCREEN_WIDTH / 12)
+        start_height = int(start_width / 4)
+        self.start_image =pygame.transform.scale(self.start_image, (start_width, start_height))
+
+        ## UPdate image locations ##
+        # Logo location parameters
+        self.LOGO_SIZE = self.logo_image.get_size()
+        self.LOGO_X = (self.SCREEN_WIDTH - self.LOGO_SIZE[0]) / 2
+        self.LOGO_Y = (self.SCREEN_HEIGHT - self.LOGO_SIZE[1]) / 2
+
+        # Start location parameters
+        self.START_SIZE = self.start_image.get_size()
+        self.START_X = (self.SCREEN_WIDTH - self.START_SIZE[0]) / 2
+        self.START_Y = (self.SCREEN_HEIGHT - self.START_SIZE[1] - 100)
+
+
     def main_loop(self):
 
         # Variable to show if game is still running
@@ -70,11 +93,8 @@ class Clueless:
                     self.SCREEN_HEIGHT = event.h
                     self.screen = pygame.display.set_mode((self.SCREEN_WIDTH, self.SCREEN_HEIGHT), pygame.RESIZABLE)
 
-                    # Update the logo location
-                    self.LOGO_X = (self.SCREEN_WIDTH - 1650) / 2
-
-                    # Update house image size
-                    self.house_image = pygame.transform.scale(self.house_image, (self.SCREEN_WIDTH, self.SCREEN_HEIGHT))
+                    # Update the images
+                    self.update_images()
 
                     if self.game_state == "GAME":
                         # Draw the map
@@ -93,6 +113,8 @@ class Clueless:
         self.screen.blit(self.house_image, (0,0))
         # Draw the logo
         self.screen.blit(self.logo_image, [self.LOGO_X, 20])
+        # Draw the start button
+        self.screen.blit(self.start_image, [self.START_X, self.START_Y])
 
     def draw_map(self):
         # Room variables
