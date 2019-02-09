@@ -1,4 +1,5 @@
 import pygame
+from player import Player
 
 class Clueless:
     def __init__(self):
@@ -45,7 +46,7 @@ class Clueless:
         self.logo_image = pygame.image.load('images\logo2.png')
         self.house_image = pygame.image.load('images\house.jpg')
         self.start_image = pygame.image.load('images\start.png').convert_alpha()
-        self.start_image.set_alpha(20)
+        self.map_image = pygame.image.load('images\map.png')
 
         # Update the images
         self.update_images()
@@ -55,10 +56,13 @@ class Clueless:
         self.fade.fill(self.BLACK)
 
         # State enums
-        self.program_state = "MENU"
+        self.program_state = "GAME"
         self.menu_state = "INIT"
-        self.game_state = "INIT"
+        self.game_state = "WAITING"
         self.opacity_direction = "UP"
+
+        # Load the players
+        self.player_1 = Player("C:\\Users\\tkakusa\\PycharmProjects\\clueless\\images\\players\\player1", [50, 50])
 
     def blit_alpha(self, target, source, location, opacity):
         x = location[0]
@@ -72,17 +76,22 @@ class Clueless:
     def update_images(self):
         ## Transform images ##
         # Logo image
-        logo_width = int(self.SCREEN_WIDTH * .6)
-        logo_height = int(logo_width / 7)
-        self.logo_image = pygame.transform.scale(self.logo_image, (logo_width, logo_height))
+        width = int(self.SCREEN_WIDTH * .6)
+        height = int(width / 7)
+        self.logo_image = pygame.transform.scale(self.logo_image, (width, height))
 
         # House image
         self.house_image = pygame.transform.scale(self.house_image, (self.SCREEN_WIDTH, self.SCREEN_HEIGHT))
 
         # Start image
-        start_width = int(self.SCREEN_WIDTH / 12)
-        start_height = int(start_width / 4)
-        self.start_image =pygame.transform.scale(self.start_image, (start_width, start_height))
+        width = int(self.SCREEN_WIDTH / 12)
+        height = int(width / 4)
+        self.start_image = pygame.transform.scale(self.start_image, (width, height))
+
+        # Map image
+        width = int(self.SCREEN_WIDTH * 1 / 2)
+        height = int(width)
+        self.map_image = pygame.transform.scale(self.map_image, (width, height))
 
         ## UPdate image locations ##
         # Logo location parameters
@@ -95,20 +104,31 @@ class Clueless:
         self.START_X = (self.SCREEN_WIDTH - self.START_SIZE[0]) / 2
         self.START_Y = (self.SCREEN_HEIGHT - self.START_SIZE[1] - 100)
 
+        # Map location parameters
+        self.MAP_SIZE = self.map_image.get_size()
+        self.MAP_X = (self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS - self.MAP_SIZE[0]) / 3
+        self.MAP_Y = (self.SCREEN_HEIGHT - self.MAP_SIZE[1]) / 3
 
     def main_loop(self):
-        # Variable to show if game is still running
+        # Mutable variables
         running = True
 
         while running:
             # Boolean Variables
             bool_update_opacity = False
+            bool_animate = False
+
+            # State Variables
+            move_direction = "NONE"
+
+
 
             # event handler
             for event in pygame.event.get():
                 # Timer events
                 if event.type == pygame.USEREVENT:
                     bool_update_opacity = True
+                    bool_animate = True
                 # Resize the window in case of a resize event
                 if event.type == pygame.VIDEORESIZE:
                     self.SCREEN_WIDTH = event.w
@@ -122,6 +142,13 @@ class Clueless:
                         # Draw the map
                         self.draw_map()
 
+                # Get the key press
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RIGHT:
+                        move_direction = "RIGHT"
+                    elif event.key == pygame.K_DOWN:
+                        move_direction = "DOWN"
+
                 # Quit game in the case of a quit event
                 if event.type == pygame.QUIT:
                     # Exit the main loop
@@ -130,7 +157,7 @@ class Clueless:
             if self.program_state == "MENU":
                 self.menu_loop(bool_update_opacity)
             elif self.program_state == "GAME":
-                self.game_loop()
+                self.game_loop(bool_animate, move_direction)
 
             pygame.display.update()
 
@@ -173,12 +200,14 @@ class Clueless:
 
         # Fade into the opening
         if self.menu_state == "OPENING":
-            self.screen_opacity = self.screen_opacity - 2
+            self.screen_opacity = self.screen_opacity - 5
             self.screen.blit(self.house_image, (0, 0))
             self.fade_screen(self.screen_opacity)
             if self.screen_opacity < 0:
+                self.screen_opacity = 0
                 self.menu_state = "WAITING"
 
+        # Wait for the start button to be pressed
         elif self.menu_state == "WAITING":
             # Draw the background
             self.screen.blit(self.house_image, (0,0))
@@ -188,16 +217,18 @@ class Clueless:
             self.update_opacity(bool_update_opacity)
             self.blit_alpha(self.screen, self.start_image, [self.START_X, self.START_Y], self.start_opacity)
 
+        # Fade out to start the game
         elif self.menu_state == "START":
             self.screen_opacity = self.screen_opacity + 5
             self.screen.blit(self.house_image, (0, 0))
             self.fade_screen(self.screen_opacity)
             if self.screen_opacity == 255:
+                self.screen_opacity = 255
                 self.program_state = "GAME"
 
 
 
-    def game_loop(self):
+    def game_loop(self, bool_animate, move_direction):
         if self.game_state == "INIT":
             self.screen_opacity = 255
             self.game_state = "FADE_IN"
@@ -207,58 +238,32 @@ class Clueless:
             self.fade_screen(self.screen_opacity)
             if self.screen_opacity < 0:
                 self.game_state = "WAITING"
+        elif self.game_state == "WAITING":
+            self.draw_map()
+            self.player_1.animate(bool_animate, self.screen)
+            if move_direction == "RIGHT":
+                location = self.player_1.get_location()
+                location[0] = location[0] + 50
+                self.player_1.move("RIGHT", location)
+                self.game_state = "MOVE_PLAYER"
+            elif move_direction == "DOWN":
+                location = self.player_1.get_location()
+                location[1] = location[1] + 50
+                self.player_1.move("DOWN", location)
+                self.game_state = "MOVE_PLAYER"
+        elif self.game_state == "MOVE_PLAYER":
+            self.draw_map()
+            self.player_1.animate(bool_animate, self.screen)
+            if self.player_1.sprite_state == "WAIT":
+                self.game_state = "WAITING"
 
 
     def draw_map(self):
         # Clear the screen
         self.screen.fill(self.BLACK)
-        # Room variables
-        room_study = pygame.Rect(self.COL_0, self.ROW_0, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS)
-        room_hall = pygame.Rect(self.COL_0, self.ROW_2, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS)
-        room_lounge = pygame.Rect(self.COL_0, self.ROW_4, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS)
-        room_library = pygame.Rect(self.COL_2, self.ROW_0, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS)
-        room_billiard = pygame.Rect(self.COL_2, self.ROW_2, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS)
-        room_dining = pygame.Rect(self.COL_2, self.ROW_4, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS)
-        room_conservatory = pygame.Rect(self.COL_4, self.ROW_0, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS)
-        room_ballroom = pygame.Rect(self.COL_4, self.ROW_2, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS)
-        room_kitchen = pygame.Rect(self.COL_4, self.ROW_4, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS)
 
-        # Print rooms on screen
-        pygame.draw.rect(self.screen, self.WHITE, room_study)
-        pygame.draw.rect(self.screen, self.WHITE, room_hall)
-        pygame.draw.rect(self.screen, self.WHITE, room_lounge)
-        pygame.draw.rect(self.screen, self.WHITE, room_library)
-        pygame.draw.rect(self.screen, self.WHITE, room_billiard)
-        pygame.draw.rect(self.screen, self.WHITE, room_dining)
-        pygame.draw.rect(self.screen, self.WHITE, room_conservatory)
-        pygame.draw.rect(self.screen, self.WHITE, room_ballroom)
-        pygame.draw.rect(self.screen, self.WHITE, room_kitchen)
-
-        # Print hallways on screen
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_0 + self.ROOM_DIMENSIONS / 3, self.ROW_1, self.ROOM_DIMENSIONS / 3, self.ROOM_DIMENSIONS))
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_0 + self.ROOM_DIMENSIONS / 3, self.ROW_3, self.ROOM_DIMENSIONS / 3, self.ROOM_DIMENSIONS))
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_1, self.ROW_0 + self.ROOM_DIMENSIONS / 3, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS / 3))
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_1, self.ROW_2 + self.ROOM_DIMENSIONS / 3, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS / 3))
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_1, self.ROW_4 + self.ROOM_DIMENSIONS / 3, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS / 3))
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_2 + self.ROOM_DIMENSIONS / 3, self.ROW_1, self.ROOM_DIMENSIONS / 3, self.ROOM_DIMENSIONS))
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_2 + self.ROOM_DIMENSIONS / 3, self.ROW_3, self.ROOM_DIMENSIONS / 3, self.ROOM_DIMENSIONS))
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_3, self.ROW_0 + self.ROOM_DIMENSIONS / 3, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS / 3))
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_3, self.ROW_2 + self.ROOM_DIMENSIONS / 3, self.ROOM_DIMENSIONS, self.ROOM_DIMENSIONS / 3))
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_3, self.ROW_4 +self.ROOM_DIMENSIONS / 3,self.ROOM_DIMENSIONS,self.ROOM_DIMENSIONS / 3))
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_4 +self.ROOM_DIMENSIONS / 3, self.ROW_1,self.ROOM_DIMENSIONS / 3,self.ROOM_DIMENSIONS))
-        pygame.draw.rect(self.screen, self.RED,
-                         pygame.Rect(self.COL_4 +self.ROOM_DIMENSIONS / 3, self.ROW_3,self.ROOM_DIMENSIONS / 3,self.ROOM_DIMENSIONS))
+        # Draw the map
+        self.screen.blit(self.map_image, (self.MAP_X, self.MAP_Y))
 
         # Print screen separator
         line_start = (self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS, 0)
