@@ -38,9 +38,9 @@ class Clueless:
         self.ROOM_DIMENSIONS = 200
         self.MAP_WIDTH = self.ROOM_DIMENSIONS * 5
         self.MAP_HEIGHT = self.ROOM_DIMENSIONS * 5
-        self.SCREEN_DIVIDER_START = self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS
-        self.OPTIONS_WIDTH = self.SCREEN_WIDTH - self.SCREEN_DIVIDER_START
         self.MAP_SIZE = self.map_image.get_size()
+        self.SCREEN_DIVIDER_START = self.ROOM_DIMENSIONS/2 + self.MAP_SIZE[0] + self.ROOM_DIMENSIONS/2
+        self.OPTIONS_WIDTH = self.SCREEN_WIDTH - self.SCREEN_DIVIDER_START
         self.MAP_X = (self.SCREEN_DIVIDER_START - self.MAP_SIZE[0]) / 3
         self.MAP_Y = (self.SCREEN_HEIGHT - self.MAP_SIZE[1]) / 3
         self.screen_opacity = 0
@@ -182,15 +182,11 @@ class Clueless:
         width = int(self.SCREEN_WIDTH * 1 / 2)
         height = int(width)
         self.map_image = pygame.transform.scale(self.map_image, (width, height))
+        self.ROOM_DIMENSIONS = int(width / 5)
 
         # Sprites
         for player in self.player_list:
             player.transform_sprites(self.SCREEN_WIDTH)
-
-        # Title screen
-        #width = int(self.SCREEN_WIDTH - self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS)
-        #height = int(width / 5)
-        #self.title_screen = pygame.transform.scale(self.title_screen, (width, height))
 
         ## UPdate image locations ##
         # Logo location parameters
@@ -205,13 +201,18 @@ class Clueless:
 
         # Map location parameters
         self.MAP_SIZE = self.map_image.get_size()
-        self.SCREEN_DIVIDER_START = self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS
+        self.SCREEN_DIVIDER_START = self.ROOM_DIMENSIONS/2 + self.MAP_SIZE[0] + self.ROOM_DIMENSIONS/2
         self.OPTIONS_WIDTH = self.SCREEN_WIDTH - self.SCREEN_DIVIDER_START
-        self.MAP_X = (self.SCREEN_DIVIDER_START - self.MAP_SIZE[0]) / 3
-        self.MAP_Y = (self.SCREEN_HEIGHT - self.MAP_SIZE[1]) / 3
+        map_rect = self.map_image.get_rect(
+            center=(self.SCREEN_DIVIDER_START / 2, self.SCREEN_HEIGHT / 2))
+        # self.MAP_X = (self.SCREEN_DIVIDER_START - self.MAP_SIZE[0]) / 3
+        self.MAP_X = map_rect.x
+        self.MAP_Y = map_rect.y
 
         ## Options Menu ##
         self.update_options_menu()
+
+
 
     def update_options_menu(self):
         # Options player info
@@ -222,6 +223,12 @@ class Clueless:
 
         # Option menu updates
         self.options.init_accusation_menu(self.screen)
+
+        # Title screen
+        title_ratio = self.options.title_surface.get_rect().h / self.options.title_surface.get_rect().w
+        width = int(self.OPTIONS_WIDTH)
+        height = int(width * title_ratio)
+        self.options.title_surface = pygame.transform.scale(self.options.title_surface, (width, height))
 
     def main_loop(self):
         # Mutable variables
@@ -443,8 +450,8 @@ class Clueless:
         self.screen.blit(self.options.player_info_surface, (self.SCREEN_DIVIDER_START + 10, options_row))
 
         # Print screen separator
-        line_start = (self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS, 0)
-        line_end = (self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS, self.SCREEN_HEIGHT)
+        line_start = (self.SCREEN_DIVIDER_START, 0)
+        line_end = (self.SCREEN_DIVIDER_START, self.SCREEN_HEIGHT)
         pygame.draw.line(self.screen, self.WHITE, line_start, line_end, 5)
 
 

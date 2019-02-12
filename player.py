@@ -23,6 +23,10 @@ class Player:
         self.character = character
         self.bool_is_active = False
 
+        # Font
+        self.font = pygame.font.SysFont('Comic Sans MS', 30)
+        self.player_label = self.font.render(self.player_name, False, (255, 255, 255))
+
         # Load sprites
         location_list = glob.glob(sprite_file + "\\*")
 
@@ -70,6 +74,11 @@ class Player:
             self.sprite_height = int(self.size_ratio * self.sprite_width)
         for i in range(0, len(self.sprites)):
             self.sprites[i] = pygame.transform.scale(self.sprites[i], (self.sprite_width, self.sprite_height))
+
+        label_ratio = self.player_label.get_rect().h / self.player_label.get_rect().w
+        label_width = int(screen_width / 25)
+        label_height = int(label_width * label_ratio)
+        self.player_label = pygame.transform.scale(self.player_label, (label_width, label_height))
 
     def animate(self, bool_animate, screen):
         if bool_animate and self.bool_is_active:
@@ -126,7 +135,10 @@ class Player:
                         self.current_sprite = 0
                         self.sprite_state = "WAIT"
 
-
-
-
+        current_sprite = self.sprites[self.current_sprite]
+        sprite_rect = current_sprite.get_rect()
+        text_rect = self.player_label.get_rect(
+            center=(self.sprite_location[0] + sprite_rect.w / 2, self.sprite_location[1] + self.player_label.get_rect()[1] / 2))
+        pygame.draw.rect(screen, (0,0,0), text_rect)
+        screen.blit(self.player_label, text_rect)
         screen.blit(self.sprites[self.current_sprite], self.sprite_location)
