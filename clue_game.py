@@ -13,7 +13,7 @@ class Clueless:
         pygame.display.set_caption("The Game of Clue-Less")
 
         # Create the actual screen
-        self.screen = pygame.display.set_mode((2560, 1440))#, pygame.RESIZABLE)
+        self.screen = pygame.display.set_mode((2560, 1440), pygame.RESIZABLE)
 
         # Create the options menu
         self.options = options_menu.Options()
@@ -217,6 +217,7 @@ class Clueless:
         # Options player info
         width = int(self.OPTIONS_WIDTH / 3)
         height = int(width * self.options.PLAYER_INFO_SURFACE_RATIO)
+        self.options.update_scaled_values(width, height)
         self.options.player_info_surface = pygame.transform.scale(self.options.player_info_surface, (width, height))
 
         # Option menu updates
@@ -261,38 +262,17 @@ class Clueless:
                         # Draw the map
                         self.draw_map()
 
-                # Get the key press
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_RIGHT:
-                        self.current_player.bool_is_active = False
-                        player_number = self.current_player.player_number
-                        if player_number == 6:
-                            player_number = 1
-                        else:
-                            player_number = player_number + 1
-                        self.current_player = self.player_list[player_number - 1]
-                        self.current_player.bool_is_active = True
-                        self.options.update_player_info(
-                            self.current_player.player_number,
-                            self.current_player.player_name,
-                            self.current_player.character,
-                            "Col. Mustard",
-                            "Rope",
-                            "Sutdy"
-                        )
-                        self.update_options_menu()
-                        #move_direction = "RIGHT"
-                    elif event.key == pygame.K_LEFT:
-                        move_direction = "LEFT"
-                    elif event.key == pygame.K_DOWN:
-                        move_direction = "DOWN"
-                    elif event.key == pygame.K_UP:
-                        move_direction = "UP"
-                    if event.key == pygame.K_ESCAPE:
-                        self.options.init_move_menu(self.screen, self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"])
-                        #self.options.move_menu.enable()
+                # Mouse click events
+                if event.type == pygame.MOUSEBUTTONUP:
+                    pos = pygame.mouse.get_pos()
+                    response = self.options.check_button_clicked(pos, (self.SCREEN_DIVIDER_START + 10,
+                                                            self.options.title_surface.get_size()[1]))
+                    if response == "Move":
+                        self.options.init_move_menu(self.screen,
+                                                   self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"])
+                        self.options.move_menu.enable()
+                    elif response == "Accuse / Suspect":
                         self.options.accusation_menu.enable()
-
                 # Quit game in the case of a quit event
                 if event.type == pygame.QUIT:
                     # Exit the main loop
@@ -386,11 +366,21 @@ class Clueless:
             if self.screen_opacity < 0:
                 self.game_state = "WAITING"
         elif self.game_state == "WAITING":
+            # Drwaw the map
             self.draw_map()
+
+            # Draw the players
             for player in self.player_list:
                 if not player == self.current_player:
                     player.animate(bool_animate, self.screen)
             self.current_player.animate(bool_animate, self.screen)
+
+            # Check for a movement action
+            move_direction = "NONE"
+            if self.options.move_chosen:
+                move_direction = self.options.move_direction
+                self.options.move_chosen = False
+
             if move_direction == "RIGHT":
                 direction_index = self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"].index(move_direction)
                 new_room = self.MAP_DICT[self.current_player.sprite_room]["ROOMS"][direction_index]
@@ -416,7 +406,26 @@ class Clueless:
             for player in self.player_list:
                 player.animate(bool_animate, self.screen)
             if self.current_player.sprite_state == "WAIT":
-                self.game_state = "WAITING"
+                self.game_state = "CHANGE_PLAYER"
+        elif self.game_state == "CHANGE_PLAYER":
+            self.current_player.bool_is_active = False
+            player_number = self.current_player.player_number
+            if player_number == 6:
+                player_number = 1
+            else:
+                player_number = player_number + 1
+            self.current_player = self.player_list[player_number - 1]
+            self.current_player.bool_is_active = True
+            self.options.update_player_info(
+                self.current_player.player_number,
+                self.current_player.player_name,
+                self.current_player.character,
+                "Col. Mustard",
+                "Rope",
+                "Sutdy"
+            )
+            self.game_state = "WAITING"
+            self.update_options_menu()
 
 
     def draw_map(self):

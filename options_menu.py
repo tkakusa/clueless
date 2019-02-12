@@ -1,4 +1,17 @@
 import pygame, pygameMenu
+import copy
+
+
+class Button:
+    def __init__(self, color, text):
+        self.color = color
+        self.font = pygame.font.SysFont('stencil', 60)
+        self.text_value = text
+        self.text = self.font.render(text, False, (255, 255, 255))
+        self.rect = self.text.get_rect()
+
+    def clicked(self):
+        return self.text_value
 
 class Options:
     def __init__(self):
@@ -9,12 +22,20 @@ class Options:
         self.PLAYER_INFO_HEIGHT = 0
         self.PLAYER_INFO_WIDTH = 0
         self.PLAYER_INFO_SURFACE_RATIO = 0
+        self.SCALED_WIDTH = 0
+        self.SCALED_HEIGHT = 0
+        self.button_starts = [0,0]
+
+        # Move parameters
+        self.move_direction = None
+        self.move_chosen = False
 
         # Accusation variables
         self.who_accusation = None
         self.what_accusation = None
         self.where_accusation = None
         self.bool_accuse = False
+        self.accuse_chosen = False
 
         # Fonts
         self.title_font = pygame.font.SysFont('goudy', 100)
@@ -32,8 +53,27 @@ class Options:
         self.title_surface = self.title_font.render('THE CLUE-LESS GAME', False, (255, 255, 255))
         self.TITLE_WIDTH, self.TITLE_HEIGHT = self.title_surface.get_size()
 
+        # Create the buttons
+        self.buttons = []
+        self.buttons.append(Button((0, 255, 0), "Move"))
+        self.buttons.append(Button((255, 0, 0), "Accuse / Suspect"))
+
         # Update the player info screen
         self.update_player_info(1, "Miss Scarlet", "Red Demon", "Col. Mustard", "Rope", "Study")
+
+
+    def draw_button(self, screen, button, location):
+        button.rect.x, button.rect.y = location
+        black_rect = copy.copy(button.rect)
+        black_rect.x = button.rect.x + 20
+        black_rect.y = button.rect.y + 20
+        black_rect.w = button.rect.w - 40
+        black_rect.h = button.rect.h - 40
+        text_rect = button.text.get_rect(
+            center=(button.rect.x + button.rect.w / 2, button.rect.y + button.rect.h / 2))
+        pygame.draw.rect(screen, button.color, button.rect)
+        pygame.draw.rect(screen, (0,0,0), black_rect)
+        screen.blit(button.text, text_rect)
 
 
     def update_player_info(self, player_number, player_name, character, suspects, weapons, rooms):
@@ -51,23 +91,50 @@ class Options:
         self.player_info.append(self.text_font.render('          Suspects:    ' + suspects, False, (255, 255, 255)))
         self.player_info.append(self.text_font.render('          Weapons:     ' + weapons, False, (255, 255, 255)))
         self.player_info.append(self.text_font.render('          Rooms:          ' + rooms, False, (255, 255, 255)))
+        self.player_info.append(self.text_font.render(' ', False, (255, 255, 255)))
 
         self.PLAYER_INFO_HEIGHT = 0
-        self.PLAYER_INFO_WIDTH = 0
-        temp_surface = pygame.Surface((2560, 1440))
+        self.PLAYER_INFO_WIDTH = 1000
+        temp_surface = pygame.Surface((2560, 2560))
         for info in self.player_info:
             rect = info.get_size()
             temp_surface.blit(info, (0, self.PLAYER_INFO_HEIGHT))
             self.PLAYER_INFO_HEIGHT = self.PLAYER_INFO_HEIGHT + rect[1]
-            if rect[0] > self.PLAYER_INFO_WIDTH:
-                self.PLAYER_INFO_WIDTH = rect[0]
+
+        count = 0
+        for button in self.buttons:
+            self.button_starts[count] = self.PLAYER_INFO_HEIGHT
+            button.rect.w = self.PLAYER_INFO_WIDTH
+            button.rect.h = button.text.get_rect().h * 4
+            self.draw_button(temp_surface, button, (0, self.PLAYER_INFO_HEIGHT))
+            self.PLAYER_INFO_HEIGHT = self.PLAYER_INFO_HEIGHT + button.rect.h + 40
+            count = count + 1
 
         self.PLAYER_INFO_SURFACE_RATIO = self.PLAYER_INFO_HEIGHT / self.PLAYER_INFO_WIDTH
         self.player_info_surface = pygame.Surface((self.PLAYER_INFO_WIDTH, self.PLAYER_INFO_HEIGHT))
         self.player_info_surface.blit(temp_surface, (0, 0))
 
+    def update_scaled_values(self, width, height):
+        self.SCALED_WIDTH = width
+        self.SCALED_HEIGHT = height
+
+    def check_button_clicked(self, position, offset):
+        count = 0
+        scaled_ratio = self.SCALED_HEIGHT / self.PLAYER_INFO_HEIGHT
+        for button in self.buttons:
+            rect = button.text.get_rect()
+            rect_x = rect.x + offset[0]
+            rect_y = rect.y + offset[1] + int(self.button_starts[count] * scaled_ratio)
+            rect_w = self.SCALED_WIDTH
+            rect_h = int(rect.h * 4 * scaled_ratio)
+            if rect_x + rect_w > position[0] > rect_x and rect_y + rect_h > position[1] > rect_y:
+                return button.clicked()
+            count = count + 1
+
+        return "None"
+
     def init_move_menu(self, screen, directions):
-        H_SIZE = 400
+        H_SIZE = 600
         W_SIZE = 600
         screen_width, screen_height = screen.get_size()
         formatted_directions = []
@@ -93,10 +160,11 @@ class Options:
 
         self.move_menu.add_selector('Move to?',
                                     formatted_directions,
-                                    onchange=self.update_who_accusation,
-                                    onreturn=self.update_who_accusation,
+                                    onchange=self.update_move_direction,
+                                    onreturn=self.update_move_direction,
                                     default=1
                                     )
+        self.move_menu.add_option('Done', self.movement_chosen)
         self.move_menu.add_option('Cancel', pygameMenu.locals.PYGAME_MENU_CLOSE)
 
     def init_accusation_menu(self, screen):
@@ -188,5 +256,9 @@ class Options:
             self.bool_accuse = True
         else:
             self.bool_accuse = False
+
+    def movement_chosen(self):
+        self.move_menu.disable()
+        self.move_chosen = True
 
 
