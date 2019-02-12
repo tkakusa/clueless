@@ -1,5 +1,8 @@
-import pygame
+import pygame, pygameMenu
+import os, json
 from player import Player
+import options_menu
+
 
 class Clueless:
     def __init__(self):
@@ -10,7 +13,18 @@ class Clueless:
         pygame.display.set_caption("The Game of Clue-Less")
 
         # Create the actual screen
-        self.screen = pygame.display.set_mode((1920, 1080), pygame.RESIZABLE)
+        self.screen = pygame.display.set_mode((2560, 1440))#, pygame.RESIZABLE)
+
+        # Create the options menu
+        self.options = options_menu.Options()
+        self.options.init_accusation_menu(self.screen)
+        self.options.init_move_menu(self.screen, ["NONE"])
+
+        # Load Images
+        self.logo_image = pygame.image.load('images\logo2.png')
+        self.house_image = pygame.image.load('images\house.jpg')
+        self.start_image = pygame.image.load('images\start.png').convert_alpha()
+        self.map_image = pygame.image.load('images\map2.png')
 
         # Color variables
         self.BLACK = (0, 0, 0)
@@ -19,37 +33,59 @@ class Clueless:
         self.RED = (255, 0, 0)
         
         # Variables
+        self.SCREEN_WIDTH = 2560
+        self.SCREEN_HEIGHT = 1440
         self.ROOM_DIMENSIONS = 200
         self.MAP_WIDTH = self.ROOM_DIMENSIONS * 5
         self.MAP_HEIGHT = self.ROOM_DIMENSIONS * 5
-        self.SCREEN_WIDTH = 1920
-        self.SCREEN_HEIGHT = 1080
+        self.SCREEN_DIVIDER_START = self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS
+        self.OPTIONS_WIDTH = self.SCREEN_WIDTH - self.SCREEN_DIVIDER_START
+        self.MAP_SIZE = self.map_image.get_size()
+        self.MAP_X = (self.SCREEN_DIVIDER_START - self.MAP_SIZE[0]) / 3
+        self.MAP_Y = (self.SCREEN_HEIGHT - self.MAP_SIZE[1]) / 3
         self.screen_opacity = 0
         self.start_opacity = 150
 
-        self.ROW_0 = 200
-        self.ROW_1 = self.ROW_0 + 1 * self.ROOM_DIMENSIONS
-        self.ROW_2 = self.ROW_0 + 2 * self.ROOM_DIMENSIONS
-        self.ROW_3 = self.ROW_0 + 3 * self.ROOM_DIMENSIONS
-        self.ROW_4 = self.ROW_0 + 4 * self.ROOM_DIMENSIONS
-        self.COL_0 = 200
-        self.COL_1 = self.COL_0 + 1 * self.ROOM_DIMENSIONS
-        self.COL_2 = self.COL_0 + 2 * self.ROOM_DIMENSIONS
-        self.COL_3 = self.COL_0 + 3 * self.ROOM_DIMENSIONS
-        self.COL_4 = self.COL_0 + 4 * self.ROOM_DIMENSIONS
+        self.MAP_LOCATIONS = [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]
+        self.MAP_DICT = None
+
+        # Initialize the map dict
+        self.init_map_dict()
+
+        # Update the map locations
+        self.update_map_locations()
 
         # Initialize clock and timer
         self.clock = pygame.time.Clock()
         pygame.time.set_timer(pygame.USEREVENT, 100)
 
-        # Load Images
-        self.logo_image = pygame.image.load('images\logo2.png')
-        self.house_image = pygame.image.load('images\house.jpg')
-        self.start_image = pygame.image.load('images\start.png').convert_alpha()
-        self.map_image = pygame.image.load('images\map.png')
+        # Load the players
+        cwd = os.getcwd()
+        self.player_list = []
+        self.player_list.append(Player(cwd + "\\images\\players\\big_demon",     "H1",  1, "Miss Scarlet", "Red Demon"))
+        self.player_list.append(Player(cwd + "\\images\\players\\big_zombie",    "H2",  2, "Prof. Plumb", "Big Zombie"))
+        self.player_list.append(Player(cwd + "\\images\\players\\green_girl",    "H4",  3, "Col. Mustard", "Female Elf"))
+        self.player_list.append(Player(cwd + "\\images\\players\\green_guy",     "H7",  4, "Mrs. Peacock", "Male Elf"))
+        self.player_list.append(Player(cwd + "\\images\\players\\knight_orange", "H10", 5, "Mr. Green", "Male Knight"))
+        self.player_list.append(Player(cwd + "\\images\\players\\knight_pink",   "H11", 6, "Mrs. White", "Female Knight"))
 
         # Update the images
         self.update_images()
+
+        # Update player locations
+        for player in self.player_list:
+            player.set_location(self.MAP_DICT[player.sprite_room]["LOCATION"])
+
+        self.current_player = self.player_list[1]
+        self.current_player.bool_is_active = True
+        self.options.update_player_info(
+            self.current_player.player_number,
+            self.current_player.player_name,
+            self.current_player.character,
+            "Col. Mustard",
+            "Rope",
+            "Sutdy"
+        )
 
         # Screen fade parameters
         self.fade = pygame.Surface((self.SCREEN_WIDTH, self.SCREEN_HEIGHT))
@@ -61,8 +97,9 @@ class Clueless:
         self.game_state = "WAITING"
         self.opacity_direction = "UP"
 
-        # Load the players
-        self.player_1 = Player("C:\\Users\\tkakusa\\PycharmProjects\\clueless\\images\\players\\player1", [50, 50])
+    def init_map_dict(self):
+        with open("map_dict.json", "r") as map_dict_file:
+            self.MAP_DICT = json.load(map_dict_file)
 
     def blit_alpha(self, target, source, location, opacity):
         x = location[0]
@@ -72,6 +109,59 @@ class Clueless:
         temp.blit(source, (0, 0))
         temp.set_alpha(opacity)
         target.blit(temp, location)
+
+    def update_map_locations(self):
+        divisor = self.MAP_SIZE[0] / 10
+        row = divisor
+        col = divisor
+        for i in range(0, 5):
+            for j in range(0, 5):
+                self.MAP_LOCATIONS[i][j] = [int(row + self.MAP_Y), int(col + self.MAP_X)]
+                if i == 0 and j == 0:
+                    self.MAP_DICT["STUDY"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 1 and j == 0:
+                    self.MAP_DICT["H0"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 2 and j == 0:
+                    self.MAP_DICT["HALL"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 3 and j == 0:
+                    self.MAP_DICT["H1"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 4 and j == 0:
+                    self.MAP_DICT["LOUNGE"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 0 and j == 1:
+                    self.MAP_DICT["H2"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 2 and j == 1:
+                    self.MAP_DICT["H3"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 4 and j == 1:
+                    self.MAP_DICT["H4"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 0 and j == 2:
+                    self.MAP_DICT["LIBRARY"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 1 and j == 2:
+                    self.MAP_DICT["H5"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 2 and j == 2:
+                    self.MAP_DICT["BILLIARD_ROOM"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 3 and j == 2:
+                    self.MAP_DICT["H6"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 4 and j == 2:
+                    self.MAP_DICT["DINING_ROOM"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 0 and j == 3:
+                    self.MAP_DICT["H7"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 2 and j == 3:
+                    self.MAP_DICT["H8"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 4 and j == 3:
+                    self.MAP_DICT["H9"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 0 and j == 4:
+                    self.MAP_DICT["CONSERVATORY"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 1 and j == 4:
+                    self.MAP_DICT["H10"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 2 and j == 4:
+                    self.MAP_DICT["BALLROOM"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 3 and j == 4:
+                    self.MAP_DICT["H11"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                elif i == 4 and j == 4:
+                    self.MAP_DICT["KITCHEN"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
+                col = col + 2 * divisor
+            col = divisor
+            row = row + 2 * divisor
 
     def update_images(self):
         ## Transform images ##
@@ -93,6 +183,15 @@ class Clueless:
         height = int(width)
         self.map_image = pygame.transform.scale(self.map_image, (width, height))
 
+        # Sprites
+        for player in self.player_list:
+            player.transform_sprites(self.SCREEN_WIDTH)
+
+        # Title screen
+        #width = int(self.SCREEN_WIDTH - self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS)
+        #height = int(width / 5)
+        #self.title_screen = pygame.transform.scale(self.title_screen, (width, height))
+
         ## UPdate image locations ##
         # Logo location parameters
         self.LOGO_SIZE = self.logo_image.get_size()
@@ -106,8 +205,22 @@ class Clueless:
 
         # Map location parameters
         self.MAP_SIZE = self.map_image.get_size()
-        self.MAP_X = (self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS - self.MAP_SIZE[0]) / 3
+        self.SCREEN_DIVIDER_START = self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS
+        self.OPTIONS_WIDTH = self.SCREEN_WIDTH - self.SCREEN_DIVIDER_START
+        self.MAP_X = (self.SCREEN_DIVIDER_START - self.MAP_SIZE[0]) / 3
         self.MAP_Y = (self.SCREEN_HEIGHT - self.MAP_SIZE[1]) / 3
+
+        ## Options Menu ##
+        self.update_options_menu()
+
+    def update_options_menu(self):
+        # Options player info
+        width = int(self.OPTIONS_WIDTH / 3)
+        height = int(width * self.options.PLAYER_INFO_SURFACE_RATIO)
+        self.options.player_info_surface = pygame.transform.scale(self.options.player_info_surface, (width, height))
+
+        # Option menu updates
+        self.options.init_accusation_menu(self.screen)
 
     def main_loop(self):
         # Mutable variables
@@ -124,7 +237,8 @@ class Clueless:
 
 
             # event handler
-            for event in pygame.event.get():
+            events = pygame.event.get()
+            for event in events:
                 # Timer events
                 if event.type == pygame.USEREVENT:
                     bool_update_opacity = True
@@ -138,6 +252,11 @@ class Clueless:
                     # Update the images
                     self.update_images()
 
+                    # Update the map locations
+                    self.update_map_locations()
+                    for player in self.player_list:
+                        player.set_location(self.MAP_DICT[player.sprite_room]["LOCATION"])
+
                     if self.program_state == "GAME":
                         # Draw the map
                         self.draw_map()
@@ -145,9 +264,34 @@ class Clueless:
                 # Get the key press
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RIGHT:
-                        move_direction = "RIGHT"
+                        self.current_player.bool_is_active = False
+                        player_number = self.current_player.player_number
+                        if player_number == 6:
+                            player_number = 1
+                        else:
+                            player_number = player_number + 1
+                        self.current_player = self.player_list[player_number - 1]
+                        self.current_player.bool_is_active = True
+                        self.options.update_player_info(
+                            self.current_player.player_number,
+                            self.current_player.player_name,
+                            self.current_player.character,
+                            "Col. Mustard",
+                            "Rope",
+                            "Sutdy"
+                        )
+                        self.update_options_menu()
+                        #move_direction = "RIGHT"
+                    elif event.key == pygame.K_LEFT:
+                        move_direction = "LEFT"
                     elif event.key == pygame.K_DOWN:
                         move_direction = "DOWN"
+                    elif event.key == pygame.K_UP:
+                        move_direction = "UP"
+                    if event.key == pygame.K_ESCAPE:
+                        self.options.init_move_menu(self.screen, self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"])
+                        #self.options.move_menu.enable()
+                        self.options.accusation_menu.enable()
 
                 # Quit game in the case of a quit event
                 if event.type == pygame.QUIT:
@@ -158,6 +302,9 @@ class Clueless:
                 self.menu_loop(bool_update_opacity)
             elif self.program_state == "GAME":
                 self.game_loop(bool_animate, move_direction)
+
+            self.options.accusation_menu.mainloop(events)
+            self.options.move_menu.mainloop(events)
 
             pygame.display.update()
 
@@ -240,21 +387,35 @@ class Clueless:
                 self.game_state = "WAITING"
         elif self.game_state == "WAITING":
             self.draw_map()
-            self.player_1.animate(bool_animate, self.screen)
+            for player in self.player_list:
+                if not player == self.current_player:
+                    player.animate(bool_animate, self.screen)
+            self.current_player.animate(bool_animate, self.screen)
             if move_direction == "RIGHT":
-                location = self.player_1.get_location()
-                location[0] = location[0] + 50
-                self.player_1.move("RIGHT", location)
+                direction_index = self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"].index(move_direction)
+                new_room = self.MAP_DICT[self.current_player.sprite_room]["ROOMS"][direction_index]
+                self.current_player.move("RIGHT", self.MAP_DICT[new_room]["LOCATION"], new_room)
+                self.game_state = "MOVE_PLAYER"
+            elif move_direction == "LEFT":
+                direction_index = self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"].index(move_direction)
+                new_room = self.MAP_DICT[self.current_player.sprite_room]["ROOMS"][direction_index]
+                self.current_player.move("LEFT", self.MAP_DICT[new_room]["LOCATION"], new_room)
                 self.game_state = "MOVE_PLAYER"
             elif move_direction == "DOWN":
-                location = self.player_1.get_location()
-                location[1] = location[1] + 50
-                self.player_1.move("DOWN", location)
+                direction_index = self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"].index(move_direction)
+                new_room = self.MAP_DICT[self.current_player.sprite_room]["ROOMS"][direction_index]
+                self.current_player.move("DOWN", self.MAP_DICT[new_room]["LOCATION"], new_room)
+                self.game_state = "MOVE_PLAYER"
+            elif move_direction == "UP":
+                direction_index = self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"].index(move_direction)
+                new_room = self.MAP_DICT[self.current_player.sprite_room]["ROOMS"][direction_index]
+                self.current_player.move("UP", self.MAP_DICT[new_room]["LOCATION"], new_room)
                 self.game_state = "MOVE_PLAYER"
         elif self.game_state == "MOVE_PLAYER":
             self.draw_map()
-            self.player_1.animate(bool_animate, self.screen)
-            if self.player_1.sprite_state == "WAIT":
+            for player in self.player_list:
+                player.animate(bool_animate, self.screen)
+            if self.current_player.sprite_state == "WAIT":
                 self.game_state = "WAITING"
 
 
@@ -263,7 +424,14 @@ class Clueless:
         self.screen.fill(self.BLACK)
 
         # Draw the map
-        self.screen.blit(self.map_image, (self.MAP_X, self.MAP_Y))
+        self.screen.blit(self.map_image, (self.MAP_Y, self.MAP_X))
+
+        # Draw the options screen
+        text_rect = self.options.title_surface.get_rect(center=(self.SCREEN_DIVIDER_START + self.OPTIONS_WIDTH / 2, self.options.title_surface.get_size()[1] / 2))
+        self.screen.blit(self.options.title_surface, text_rect)
+
+        options_row = self.options.title_surface.get_size()[1]
+        self.screen.blit(self.options.player_info_surface, (self.SCREEN_DIVIDER_START + 10, options_row))
 
         # Print screen separator
         line_start = (self.ROOM_DIMENSIONS + self.MAP_WIDTH + self.ROOM_DIMENSIONS, 0)
