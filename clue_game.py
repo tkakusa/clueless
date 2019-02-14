@@ -19,6 +19,7 @@ class Clueless:
         self.options = options_menu.Options()
         self.options.init_accusation_menu(self.screen)
         self.options.init_move_menu(self.screen, ["NONE"])
+        self.options.init_suspect_menu(self.screen, "None", "none", ["None"])
 
         # Load Images
         self.logo_image = pygame.image.load('images\logo2.png')
@@ -45,6 +46,7 @@ class Clueless:
         self.MAP_Y = (self.SCREEN_HEIGHT - self.MAP_SIZE[1]) / 3
         self.screen_opacity = 0
         self.start_opacity = 150
+        self.question_order = []
 
         self.MAP_LOCATIONS = [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]
         self.MAP_DICT = None
@@ -76,7 +78,7 @@ class Clueless:
         for player in self.player_list:
             player.set_location(self.MAP_DICT[player.sprite_room]["LOCATION"])
 
-        self.current_player = self.player_list[1]
+        self.current_player = self.player_list[4]
         self.current_player.bool_is_active = True
         self.options.update_player_info(
             self.current_player.player_number,
@@ -95,6 +97,7 @@ class Clueless:
         self.program_state = "GAME"
         self.menu_state = "INIT"
         self.game_state = "WAITING"
+        self.suspect_loop = "INIT"
         self.opacity_direction = "UP"
 
     def init_map_dict(self):
@@ -116,7 +119,7 @@ class Clueless:
         col = divisor
         for i in range(0, 5):
             for j in range(0, 5):
-                self.MAP_LOCATIONS[i][j] = [int(row + self.MAP_Y), int(col + self.MAP_X)]
+                self.MAP_LOCATIONS[i][j] = [int(col + self.MAP_X), int(row + self.MAP_Y)]
                 if i == 0 and j == 0:
                     self.MAP_DICT["STUDY"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
                 elif i == 1 and j == 0:
@@ -159,9 +162,9 @@ class Clueless:
                     self.MAP_DICT["H11"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
                 elif i == 4 and j == 4:
                     self.MAP_DICT["KITCHEN"]["LOCATION"] = self.MAP_LOCATIONS[i][j]
-                col = col + 2 * divisor
-            col = divisor
-            row = row + 2 * divisor
+                row = row + 2 * divisor
+            row = divisor
+            col = col + 2 * divisor
 
     def update_images(self):
         ## Transform images ##
@@ -179,8 +182,9 @@ class Clueless:
         self.start_image = pygame.transform.scale(self.start_image, (width, height))
 
         # Map image
-        width = int(self.SCREEN_WIDTH * 1 / 2)
-        height = int(width)
+        # width = int(self.SCREEN_WIDTH * 1 / 2)
+        height = int(self.SCREEN_HEIGHT * 9 / 10)
+        width = height
         self.map_image = pygame.transform.scale(self.map_image, (width, height))
         self.ROOM_DIMENSIONS = int(width / 5)
 
@@ -205,7 +209,6 @@ class Clueless:
         self.OPTIONS_WIDTH = self.SCREEN_WIDTH - self.SCREEN_DIVIDER_START
         map_rect = self.map_image.get_rect(
             center=(self.SCREEN_DIVIDER_START / 2, self.SCREEN_HEIGHT / 2))
-        # self.MAP_X = (self.SCREEN_DIVIDER_START - self.MAP_SIZE[0]) / 3
         self.MAP_X = map_rect.x
         self.MAP_Y = map_rect.y
 
@@ -223,6 +226,7 @@ class Clueless:
 
         # Option menu updates
         self.options.init_accusation_menu(self.screen)
+        self.options.init_illegal_move_menu(self.screen, 0)
 
         # Title screen
         title_ratio = self.options.title_surface.get_rect().h / self.options.title_surface.get_rect().w
@@ -238,11 +242,6 @@ class Clueless:
             # Boolean Variables
             bool_update_opacity = False
             bool_animate = False
-
-            # State Variables
-            move_direction = "NONE"
-
-
 
             # event handler
             events = pygame.event.get()
@@ -280,6 +279,8 @@ class Clueless:
                         self.options.move_menu.enable()
                     elif response == "Accuse / Suspect":
                         self.options.accusation_menu.enable()
+                    elif response == "Pass":
+                        self.game_state = "CHANGE_PLAYER"
                 # Quit game in the case of a quit event
                 if event.type == pygame.QUIT:
                     # Exit the main loop
@@ -288,10 +289,12 @@ class Clueless:
             if self.program_state == "MENU":
                 self.menu_loop(bool_update_opacity)
             elif self.program_state == "GAME":
-                self.game_loop(bool_animate, move_direction)
+                self.game_loop(bool_animate)
 
             self.options.accusation_menu.mainloop(events)
             self.options.move_menu.mainloop(events)
+            self.options.suspect_menu.mainloop(events)
+            #self.options.illegal_move_menu(events)
 
             pygame.display.update()
 
@@ -362,7 +365,7 @@ class Clueless:
 
 
 
-    def game_loop(self, bool_animate, move_direction):
+    def game_loop(self, bool_animate):
         if self.game_state == "INIT":
             self.screen_opacity = 255
             self.game_state = "FADE_IN"
@@ -383,30 +386,31 @@ class Clueless:
             self.current_player.animate(bool_animate, self.screen)
 
             # Check for a movement action
-            move_direction = "NONE"
+            move_direction = None
             if self.options.move_chosen:
-                move_direction = self.options.move_direction
-                self.options.move_chosen = False
-
-            if move_direction == "RIGHT":
+                if self.check_collision():
+                    self.print_error_message(0)
+                else:
+                    self.options.move_menu.disable()
+                    move_direction = self.options.move_direction
+                    self.options.move_chosen = False
+            # Check for an accusation action
+            if self.options.accuse_chosen:
+                self.options.accuse_chosen = False
+                self.options.accusation_menu.disable()
+                if not self.options.bool_accuse:
+                    self.options.bool_accuse = False
+                    if self.has_number(self.current_player.sprite_room):
+                        self.print_error_message(2)
+                    elif self.current_player.sprite_room.lower() != self.options.where_accusation.lower():
+                        self.print_error_message(1)
+                    else:
+                        self.suspect_loop = "INIT"
+                        self.game_state = "SUSPECT_LOOP"
+            if move_direction:
                 direction_index = self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"].index(move_direction)
                 new_room = self.MAP_DICT[self.current_player.sprite_room]["ROOMS"][direction_index]
-                self.current_player.move("RIGHT", self.MAP_DICT[new_room]["LOCATION"], new_room)
-                self.game_state = "MOVE_PLAYER"
-            elif move_direction == "LEFT":
-                direction_index = self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"].index(move_direction)
-                new_room = self.MAP_DICT[self.current_player.sprite_room]["ROOMS"][direction_index]
-                self.current_player.move("LEFT", self.MAP_DICT[new_room]["LOCATION"], new_room)
-                self.game_state = "MOVE_PLAYER"
-            elif move_direction == "DOWN":
-                direction_index = self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"].index(move_direction)
-                new_room = self.MAP_DICT[self.current_player.sprite_room]["ROOMS"][direction_index]
-                self.current_player.move("DOWN", self.MAP_DICT[new_room]["LOCATION"], new_room)
-                self.game_state = "MOVE_PLAYER"
-            elif move_direction == "UP":
-                direction_index = self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"].index(move_direction)
-                new_room = self.MAP_DICT[self.current_player.sprite_room]["ROOMS"][direction_index]
-                self.current_player.move("UP", self.MAP_DICT[new_room]["LOCATION"], new_room)
+                self.current_player.move(move_direction, self.MAP_DICT[new_room]["LOCATION"], new_room, self.ROOM_DIMENSIONS)
                 self.game_state = "MOVE_PLAYER"
         elif self.game_state == "MOVE_PLAYER":
             self.draw_map()
@@ -433,14 +437,62 @@ class Clueless:
             )
             self.game_state = "WAITING"
             self.update_options_menu()
+        elif self.game_state == "SUSPECT_LOOP":
+            if self.suspect_loop == "INIT":
+                self.question_order = []
+                for i in range(self.current_player.player_number, 6):
+                    self.question_order.append(i)
+                for i in range(0, self.current_player.player_number):
+                    self.question_order.append(i)
+                self.suspect_loop = "CHOOSE_RESPONDER"
+            elif self.suspect_loop == "CHOOSE_RESPONDER":
+                responder = self.player_list[self.question_order[0]]
+                cards = responder.who_cards + responder.what_cards + responder.where_cards
+                card_list = []
+                for card in cards:
+                    card_list.append((card, card))
+                self.options.init_suspect_menu(self.screen,
+                                               self.current_player.player_name,
+                                               responder.player_name,
+                                               card_list)
+                self.options.suspect_menu.enable()
+                self.suspect_loop = "WAIT_FOR_RESPONSE"
+            elif self.suspect_loop == "WAIT_FOR_RESPONSE":
+                if self.options.passed:
+                    self.options.passed = False
+                    self.options.suspect_menu.disable()
+                    self.question_order.pop(0)
+                    if self.question_order:
+                        self.suspect_loop = "CHOOSE_RESPONDER"
+                    else:
+                        self.game_state = "CHANGE_PLAYER"
 
+    def print_error_message(self, message_number):
+        self.options.init_illegal_move_menu(self.screen, message_number)
+        self.options.illegal_move_menu.draw()
+        self.options.move_chosen = False
+        pygame.display.update()
+        pygame.time.wait(3000)
 
+    def has_number(self, string):
+        return any(i.isdigit() for i in string)
+
+    def check_collision(self):
+        move_direction = self.options.move_direction
+        current_room = self.current_player.sprite_room
+        next_room_index = self.MAP_DICT[current_room]["DIRECTIONS"].index(move_direction)
+        next_room = self.MAP_DICT[current_room]["ROOMS"][next_room_index]
+        if self.has_number(next_room):
+            for player in self.player_list:
+                if player.sprite_room == next_room:
+                    return True
+        return False
     def draw_map(self):
         # Clear the screen
         self.screen.fill(self.BLACK)
 
         # Draw the map
-        self.screen.blit(self.map_image, (self.MAP_Y, self.MAP_X))
+        self.screen.blit(self.map_image, (self.MAP_X, self.MAP_Y))
 
         # Draw the options screen
         text_rect = self.options.title_surface.get_rect(center=(self.SCREEN_DIVIDER_START + self.OPTIONS_WIDTH / 2, self.options.title_surface.get_size()[1] / 2))

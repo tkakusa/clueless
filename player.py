@@ -11,6 +11,7 @@ class Player:
         self.sprite_state = "WAIT"
         self.sprite_direction = "RIGHT"
         self.sprite_location = [0, 0]
+        self.start_location = [0, 0]
         self.final_location = [0, 0]
         self.sprite_width = 16
         self.sprite_height = 32
@@ -22,6 +23,11 @@ class Player:
         self.player_name = name
         self.character = character
         self.bool_is_active = False
+        self.room_size = 0
+        self.warped = False
+        self.who_cards = ["temp1"]
+        self.where_cards = ["temp2"]
+        self.what_cards = ["temp3"]
 
         # Font
         self.font = pygame.font.SysFont('Comic Sans MS', 30)
@@ -43,8 +49,9 @@ class Player:
         self.current_sprite = 0
         self.sprite_state = "WAIT"
 
-    def move(self, direction, final_location, new_room):
-        if direction == "LEFT":
+    def move(self, direction, final_location, new_room, room_size):
+        self.start_location = copy.copy(self.sprite_location)
+        if final_location[0] < self.sprite_location[0]:
             self.current_sprite = 8
         else:
             self.current_sprite = 4
@@ -57,6 +64,8 @@ class Player:
         sprite_adjust = [final_location[0] - self.sprite_width / 2, final_location[1] - self.sprite_height - self.vertical_adjust]
         self.final_location = sprite_adjust
         self.sprite_room = new_room
+        self.room_size = room_size
+        self.warped = False
 
     def set_location(self, location):
         sprite_adjust = [location[0] - self.sprite_width/2, location[1] - self.sprite_height - self.vertical_adjust]
@@ -131,6 +140,78 @@ class Player:
                     self.sprite_location[1] = self.sprite_location[1] - 5
 
                     if self.sprite_location[1] <= self.final_location[1]:
+                        self.sprite_location = self.final_location
+                        self.current_sprite = 0
+                        self.sprite_state = "WAIT"
+                elif self.sprite_direction == "DIAG_RD":
+                    self.current_sprite = self.current_sprite + 1
+                    if self.current_sprite > 7:
+                        self.current_sprite = 4
+
+                    self.sprite_location[1] = self.sprite_location[1] + 5
+                    self.sprite_location[0] = self.sprite_location[0] + 5
+
+                    if self.sprite_location[0] + self.sprite_width >= self.start_location[0] + self.room_size / 2 and not self.warped:
+                        warp_location = [self.final_location[0] - self.room_size/2 + self.sprite_width,
+                                         self.final_location[1] - self.room_size/2 + self.sprite_height]
+                        self.sprite_location = warp_location
+                        self.warped = True
+
+                    if self.sprite_location[1] >= self.final_location[1]:
+                        self.sprite_location = self.final_location
+                        self.current_sprite = 0
+                        self.sprite_state = "WAIT"
+                elif self.sprite_direction == "DIAG_RU":
+                    self.current_sprite = self.current_sprite + 1
+                    if self.current_sprite > 7:
+                        self.current_sprite = 4
+
+                    self.sprite_location[1] = self.sprite_location[1] - 5
+                    self.sprite_location[0] = self.sprite_location[0] + 5
+
+                    if self.sprite_location[0] + self.sprite_width >= self.start_location[0] + self.room_size / 2 and not self.warped:
+                        warp_location = [self.final_location[0] - self.room_size/2,
+                                         self.final_location[1] + self.room_size/2]
+                        self.sprite_location = warp_location
+                        self.warped = True
+
+                    if self.sprite_location[0] >= self.final_location[0]:
+                        self.sprite_location = self.final_location
+                        self.current_sprite = 0
+                        self.sprite_state = "WAIT"
+                elif self.sprite_direction == "DIAG_LD":
+                    self.current_sprite = self.current_sprite + 1
+                    if self.current_sprite > 7:
+                        self.current_sprite = 4
+
+                    self.sprite_location[1] = self.sprite_location[1] + 5
+                    self.sprite_location[0] = self.sprite_location[0] - 5
+
+                    if self.sprite_location[0] <= self.start_location[0] - self.room_size / 2 and not self.warped:
+                        warp_location = [self.final_location[0] + self.room_size/2 - self.sprite_width,
+                                         self.final_location[1] - self.room_size/2 + self.sprite_height]
+                        self.sprite_location = warp_location
+                        self.warped = True
+
+                    if self.sprite_location[0] <= self.final_location[0]:
+                        self.sprite_location = self.final_location
+                        self.current_sprite = 0
+                        self.sprite_state = "WAIT"
+                elif self.sprite_direction == "DIAG_LU":
+                    self.current_sprite = self.current_sprite + 1
+                    if self.current_sprite > 7:
+                        self.current_sprite = 4
+
+                    self.sprite_location[1] = self.sprite_location[1] - 5
+                    self.sprite_location[0] = self.sprite_location[0] - 5
+
+                    if self.sprite_location[0] <= self.start_location[0] - self.room_size / 2 and not self.warped:
+                        warp_location = [self.final_location[0] + self.room_size/2 - self.sprite_width,
+                                         self.final_location[1] + self.room_size/2]
+                        self.sprite_location = warp_location
+                        self.warped = True
+
+                    if self.sprite_location[0] <= self.final_location[0]:
                         self.sprite_location = self.final_location
                         self.current_sprite = 0
                         self.sprite_state = "WAIT"

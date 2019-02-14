@@ -24,7 +24,10 @@ class Options:
         self.PLAYER_INFO_SURFACE_RATIO = 0
         self.SCALED_WIDTH = 0
         self.SCALED_HEIGHT = 0
-        self.button_starts = [0,0]
+        self.button_starts = [0,0,0]
+        self.card_given = False
+        self.passed = False
+        self.card_to_give = None
 
         # Move parameters
         self.move_direction = None
@@ -37,6 +40,12 @@ class Options:
         self.bool_accuse = False
         self.accuse_chosen = False
 
+        self.error_messages = [
+            "Illegal move, cannot move to a hallway with someone already present",
+            "You can only suspect the room you are currently in",
+            "You must be in a room before you can suspect anyone"
+        ]
+
         # Fonts
         self.title_font = pygame.font.SysFont('goudy', 100)
         self.category_font = pygame.font.SysFont('stencil', 80)
@@ -48,6 +57,9 @@ class Options:
         # Menus
         self.accusation_menu = None
         self.move_menu = None
+        self.illegal_move_menu = None
+        self.suspect_menu = None
+        self.illegal_suspection_menu = None
 
         # Update title surface
         self.title_surface = self.title_font.render('THE CLUE-LESS GAME', False, (255, 255, 255))
@@ -57,6 +69,7 @@ class Options:
         self.buttons = []
         self.buttons.append(Button((0, 255, 0), "Move"))
         self.buttons.append(Button((255, 0, 0), "Accuse / Suspect"))
+        self.buttons.append(Button((0, 0, 255), "Pass"))
 
         # Update the player info screen
         self.update_player_info(1, "Miss Scarlet", "Red Demon", "Col. Mustard", "Rope", "Study")
@@ -133,6 +146,52 @@ class Options:
 
         return "None"
 
+    def init_suspect_menu(self, screen, initiator, responder, cards):
+        screen_width, screen_height = screen.get_size()
+        text_menu = pygameMenu.TextMenu(screen,
+                                        dopause=False,
+                                        font=pygameMenu.fonts.FONT_FRANCHISE,
+                                        menu_color=(30, 50, 107),  # Background color
+                                        menu_color_title=(120, 45, 30),
+                                        menu_width=600,
+                                        menu_height=300,
+                                        onclose=pygameMenu.locals.PYGAME_MENU_CLOSE,  # Pressing ESC button does nothing
+                                        title='Suspection',
+                                        window_height=screen_height,
+                                        window_width=screen_width
+                                        )
+        text_menu.add_line(responder.upper())
+        line_1 = "The player " + initiator.upper() + " has accused " + self.who_accusation.upper() + " of the"
+        line_2 = "murder in the " + self.where_accusation.upper() + " with the " + self.what_accusation.upper()
+        text_menu.add_line(line_1)
+        text_menu.add_line(line_2)
+        text_menu.add_option('Back', pygameMenu.locals.PYGAME_MENU_BACK)
+
+        self.suspect_menu = pygameMenu.Menu(screen,
+                                               dopause=False,
+                                               enabled=False,
+                                               font=pygameMenu.fonts.FONT_NEVIS,
+                                               menu_alpha=85,
+                                               menu_color=(0, 0, 0),  # Background color
+                                               menu_color_title=(255, 0, 0),
+                                               menu_height=400,
+                                               menu_width=1200,
+                                               onclose=pygameMenu.locals.PYGAME_MENU_CLOSE,
+                                               # If this menu closes (press ESC) back to main
+                                               title=responder.upper() + ': Suspection',
+                                               title_offsety=5,  # Adds 5px to title vertical position
+                                               window_height=screen_height,
+                                               window_width=screen_width
+                                               )
+        self.suspect_menu.add_option('View Suspection', text_menu)
+        self.suspect_menu.add_selector('Give card?',
+                               cards,
+                               onchange=self.update_card_given,
+                               onreturn=self.update_card_given,
+                               default=1
+                               )
+        self.suspect_menu.add_option('Give', self.give_card)
+        self.suspect_menu.add_option('Pass', self.pass_turn)
     def init_move_menu(self, screen, directions):
         H_SIZE = 600
         W_SIZE = 600
@@ -225,8 +284,8 @@ class Options:
                                            ('Lounge', 'Lounge'),
                                            ('Study', 'Study'),
                                            ],
-                                          onchange=self.update_what_accusation,
-                                          onreturn=self.update_what_accusation,
+                                          onchange=self.update_where_accusation,
+                                          onreturn=self.update_where_accusation,
                                           default=1
                                           )
         self.accusation_menu.add_selector('Accuse?',
@@ -237,7 +296,24 @@ class Options:
                                           onreturn=self.accuse_supect,
                                           default=1
                                           )
+        self.accusation_menu.add_option('Done', self.done_accusing)
         self.accusation_menu.add_option('Cancel', pygameMenu.locals.PYGAME_MENU_CLOSE)
+
+    def init_illegal_move_menu(self, screen, message_number):
+        screen_width, screen_height = screen.get_size()
+        self.illegal_move_menu = pygameMenu.TextMenu(screen,
+                                dopause=False,
+                                font=pygameMenu.fonts.FONT_FRANCHISE,
+                                menu_color=(30, 50, 107),  # Background color
+                                menu_color_title=(120, 45, 30),
+                                menu_width=600,
+                                menu_height=200,
+                                onclose=pygameMenu.locals.PYGAME_MENU_CLOSE,  # Pressing ESC button does nothing
+                                title='Illegal Move',
+                                window_height=screen_height,
+                                window_width=screen_width
+                                )
+        self.illegal_move_menu.add_line(self.error_messages[message_number])
 
     def update_move_direction(self, c, **kwargs):
         self.move_direction = c
@@ -251,14 +327,25 @@ class Options:
     def update_where_accusation(self, c, **kwargs):
         self.where_accusation = c
 
+    def update_card_given(self, c, **kwargs):
+        self.card_to_give = c
+
+    def give_card(self):
+        self.card_given = True
+
+    def pass_turn(self):
+        self.passed = True
+
     def accuse_supect(self, c, **kwargs):
         if c == "Accuse":
             self.bool_accuse = True
         else:
             self.bool_accuse = False
 
+    def done_accusing(self):
+        self.accuse_chosen = True
+
     def movement_chosen(self):
-        self.move_menu.disable()
         self.move_chosen = True
 
 

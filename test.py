@@ -104,7 +104,7 @@ map_dict = {
     "KITCHEN": {
         "LOCATION": 0,
         "DIRECTIONS": ["LEFT", "DIAG_LU", "UP"],
-        "ROOMS": ["H11", "BILLIARD_ROOM", "DINING_ROOM"]
+        "ROOMS": ["H11", "BILLIARD_ROOM", "H9"]
     },
 
 }
