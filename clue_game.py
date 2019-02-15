@@ -2,6 +2,7 @@ import pygame, pygameMenu
 import os, json
 from player import Player
 import options_menu
+import random
 
 
 class Clueless:
@@ -44,9 +45,15 @@ class Clueless:
         self.OPTIONS_WIDTH = self.SCREEN_WIDTH - self.SCREEN_DIVIDER_START
         self.MAP_X = (self.SCREEN_DIVIDER_START - self.MAP_SIZE[0]) / 3
         self.MAP_Y = (self.SCREEN_HEIGHT - self.MAP_SIZE[1]) / 3
+        self.PLAYER_COUNT = 5
+        self.ACTIVE_PLAYERS = 5
         self.screen_opacity = 0
         self.start_opacity = 150
         self.question_order = []
+        self.actual_who = None
+        self.actual_what = None
+        self.actual_where = None
+        self.remove_player = False
 
         self.MAP_LOCATIONS = [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]
         self.MAP_DICT = None
@@ -64,12 +71,15 @@ class Clueless:
         # Load the players
         cwd = os.getcwd()
         self.player_list = []
-        self.player_list.append(Player(cwd + "\\images\\players\\big_demon",     "H1",  1, "Miss Scarlet", "Red Demon"))
-        self.player_list.append(Player(cwd + "\\images\\players\\big_zombie",    "H2",  2, "Prof. Plumb", "Big Zombie"))
+        self.player_list.append(Player(cwd + "\\images\\players\\big_demon",     "LOUNGE",  1, "Miss Scarlet", "Red Demon"))
+        self.player_list.append(Player(cwd + "\\images\\players\\big_zombie",    "H2",  2, "Prof. Plum", "Big Zombie"))
         self.player_list.append(Player(cwd + "\\images\\players\\green_girl",    "H4",  3, "Col. Mustard", "Female Elf"))
         self.player_list.append(Player(cwd + "\\images\\players\\green_guy",     "H7",  4, "Mrs. Peacock", "Male Elf"))
         self.player_list.append(Player(cwd + "\\images\\players\\knight_orange", "H10", 5, "Mr. Green", "Male Knight"))
         self.player_list.append(Player(cwd + "\\images\\players\\knight_pink",   "H11", 6, "Mrs. White", "Female Knight"))
+
+        # Initialize the player cards
+        self.init_player_cards()
 
         # Update the images
         self.update_images()
@@ -78,15 +88,15 @@ class Clueless:
         for player in self.player_list:
             player.set_location(self.MAP_DICT[player.sprite_room]["LOCATION"])
 
-        self.current_player = self.player_list[4]
+        self.current_player = self.player_list[0]
         self.current_player.bool_is_active = True
         self.options.update_player_info(
             self.current_player.player_number,
             self.current_player.player_name,
             self.current_player.character,
-            "Col. Mustard",
-            "Rope",
-            "Sutdy"
+            self.current_player.who_cards,
+            self.current_player.what_cards,
+            self.current_player.where_cards
         )
 
         # Screen fade parameters
@@ -100,6 +110,63 @@ class Clueless:
         self.suspect_loop = "INIT"
         self.opacity_direction = "UP"
 
+    def init_player_cards(self):
+        who_cards = [
+            'Miss Scarlet',
+            'Prof. Plum',
+            'Col. Mustard',
+            'Mrs. Peacock',
+            'Mr. Green',
+            'Mrs. White'
+        ]
+
+        what_cards = [
+            'Candlestick',
+            'Knife',
+            'Lead Pipe',
+            'Revolver',
+            'Rope',
+            'Wrench'
+        ]
+
+        where_cards = [
+            'Ballroom',
+            'Billiard Room',
+            'Conservatory',
+            'Dining Room',
+            'Hall',
+            'Kitchen',
+            'Library',
+            'Study'
+        ]
+        location = random.randint(0, len(who_cards)-1)
+        self.actual_who = who_cards[location]
+        who_cards.pop(location)
+        location = random.randint(0, len(who_cards) - 1)
+        self.actual_what = what_cards[location]
+        what_cards.pop(location)
+        location = random.randint(0, len(who_cards) - 1)
+        self.actual_where = where_cards[location]
+        where_cards.pop(location)
+        cards_list = who_cards + what_cards + where_cards
+        count = 0
+        print(self.actual_who, " ", self.actual_what, " ", self.actual_where)
+        while True:
+            player = self.player_list[count]
+            location = random.randint(0, len(cards_list)-1)
+            card = cards_list[location]
+            cards_list.pop(location)
+            if card in who_cards:
+                player.update_cards("WHO", card)
+            if card in what_cards:
+                player.update_cards("WHAT", card)
+            if card in where_cards:
+                player.update_cards("WHERE", card)
+            count = count + 1
+            if not cards_list:
+                break
+            if count == self.PLAYER_COUNT:
+                count = 0
     def init_map_dict(self):
         with open("map_dict.json", "r") as map_dict_file:
             self.MAP_DICT = json.load(map_dict_file)
@@ -398,7 +465,18 @@ class Clueless:
             if self.options.accuse_chosen:
                 self.options.accuse_chosen = False
                 self.options.accusation_menu.disable()
-                if not self.options.bool_accuse:
+                if self.options.bool_accuse:
+                    if self.options.who_accusation == self.actual_who and self.options.what_accusation == self.actual_what and self.options.where_accusation == self.actual_where:
+                        self.print_general_message(1)
+                        self.game_state = "INIT"
+                        self.menu_state = "INIT"
+                        self.program_state = "MENU"
+                    else:
+                        self.print_general_message(2)
+                        self.remove_player = True
+                        self.game_state = "CHANGE_PLAYER"
+
+                else:
                     self.options.bool_accuse = False
                     if self.has_number(self.current_player.sprite_room):
                         self.print_error_message(2)
@@ -420,30 +498,59 @@ class Clueless:
                 self.game_state = "CHANGE_PLAYER"
         elif self.game_state == "CHANGE_PLAYER":
             self.current_player.bool_is_active = False
-            player_number = self.current_player.player_number
-            if player_number == 6:
-                player_number = 1
-            else:
+            player_number = 0
+            for player in self.player_list:
+                if player.player_number == self.current_player.player_number:
+                    break
                 player_number = player_number + 1
-            self.current_player = self.player_list[player_number - 1]
+            next_player_number = player_number + 1
+            while True:
+                if next_player_number == self.PLAYER_COUNT:
+                    next_player_number = 0
+                if self.player_list[next_player_number].bool_still_playing:
+                    break
+                next_player_number = next_player_number + 1
+            self.current_player = self.player_list[next_player_number]
             self.current_player.bool_is_active = True
             self.options.update_player_info(
                 self.current_player.player_number,
                 self.current_player.player_name,
                 self.current_player.character,
-                "Col. Mustard",
-                "Rope",
-                "Sutdy"
+                self.current_player.who_cards,
+                self.current_player.what_cards,
+                self.current_player.where_cards
             )
+            if self.remove_player:
+                self.remove_player = False
+                self.player_list[player_number].bool_still_playing = False
+                self.ACTIVE_PLAYERS = self.ACTIVE_PLAYERS - 1
+                if self.ACTIVE_PLAYERS == 1:
+                    self.print_general_message(3)
+                    self.game_state = "INIT"
+                    self.menu_state = "INIT"
+                    self.program_state = "MENU"
+                    pass
             self.game_state = "WAITING"
             self.update_options_menu()
         elif self.game_state == "SUSPECT_LOOP":
             if self.suspect_loop == "INIT":
                 self.question_order = []
-                for i in range(self.current_player.player_number, 6):
+                for player in self.player_list:
+                    if player.player_name == self.options.who_accusation:
+                        player.set_location(self.MAP_DICT[self.options.where_accusation.upper().replace(" ", "_")]["LOCATION"])
+                        player.sprite_room = self.options.where_accusation.upper().replace(" ", "_")
+                        break
+                for i in range(self.current_player.player_number, self.PLAYER_COUNT):
                     self.question_order.append(i)
                 for i in range(0, self.current_player.player_number):
                     self.question_order.append(i)
+                # Drwaw the map
+                self.draw_map()
+
+                # Draw the players
+                for player in self.player_list:
+                    if not player == self.current_player:
+                        player.animate(bool_animate, self.screen)
                 self.suspect_loop = "CHOOSE_RESPONDER"
             elif self.suspect_loop == "CHOOSE_RESPONDER":
                 responder = self.player_list[self.question_order[0]]
@@ -466,11 +573,26 @@ class Clueless:
                         self.suspect_loop = "CHOOSE_RESPONDER"
                     else:
                         self.game_state = "CHANGE_PLAYER"
+                elif self.options.card_given:
+                    self.options.card_given = False
+                    chosen_card = self.options.card_to_give
+                    if chosen_card == self.options.where_accusation or chosen_card == self.options.what_accusation or chosen_card == self.options.who_accusation:
+                        self.print_general_message(0)
+                        self.options.suspect_menu.disable()
+                        self.game_state = "CHANGE_PLAYER"
+                    else:
+                        self.print_error_message(3)
 
     def print_error_message(self, message_number):
         self.options.init_illegal_move_menu(self.screen, message_number)
         self.options.illegal_move_menu.draw()
         self.options.move_chosen = False
+        pygame.display.update()
+        pygame.time.wait(3000)
+
+    def print_general_message(self, message_number):
+        self.options.init_general_message_menu(self.screen, message_number)
+        self.options.general_message_menu.draw()
         pygame.display.update()
         pygame.time.wait(3000)
 

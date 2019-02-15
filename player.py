@@ -23,11 +23,12 @@ class Player:
         self.player_name = name
         self.character = character
         self.bool_is_active = False
+        self.bool_still_playing = True
         self.room_size = 0
         self.warped = False
-        self.who_cards = ["temp1"]
-        self.where_cards = ["temp2"]
-        self.what_cards = ["temp3"]
+        self.who_cards = []
+        self.where_cards = []
+        self.what_cards = []
 
         # Font
         self.font = pygame.font.SysFont('Comic Sans MS', 30)
@@ -44,6 +45,14 @@ class Player:
         if temp_size[0] > 16:
             self.sprite_type = "LARGE"
         self.size_ratio = temp_size[1] / temp_size[0]
+
+    def update_cards(self, card_type, card):
+        if card_type == "WHO":
+            self.who_cards.append(card)
+        if card_type == "WHERE":
+            self.where_cards.append(card)
+        if card_type == "WHAT":
+            self.what_cards.append(card)
 
     def stop(self):
         self.current_sprite = 0

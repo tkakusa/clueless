@@ -43,7 +43,15 @@ class Options:
         self.error_messages = [
             "Illegal move, cannot move to a hallway with someone already present",
             "You can only suspect the room you are currently in",
-            "You must be in a room before you can suspect anyone"
+            "You must be in a room before you can suspect anyone",
+            "The card you are trying to give is not one of the suspected cards"
+        ]
+
+        self.general_messages = [
+            "The card given was: ",
+            "CONGRATULATIONS YOU WIN!!!!",
+            "Sorry, you lose and are out of the game",
+            "Everyone has been eliminated. No one has won the game"
         ]
 
         # Fonts
@@ -60,6 +68,7 @@ class Options:
         self.illegal_move_menu = None
         self.suspect_menu = None
         self.illegal_suspection_menu = None
+        self.general_message_menu = None
 
         # Update title surface
         self.title_surface = self.title_font.render('THE CLUE-LESS GAME', False, (255, 255, 255))
@@ -101,9 +110,21 @@ class Options:
         self.player_info.append(self.text_font.render(' ', False, (255, 255, 255)))
         self.player_info.append(self.text_font.render('Starting Cards:', False, (255, 255, 255)))
         self.player_info.append(self.text_font.render(' ', False, (255, 255, 255)))
-        self.player_info.append(self.text_font.render('          Suspects:    ' + suspects, False, (255, 255, 255)))
-        self.player_info.append(self.text_font.render('          Weapons:     ' + weapons, False, (255, 255, 255)))
-        self.player_info.append(self.text_font.render('          Rooms:          ' + rooms, False, (255, 255, 255)))
+        if suspects:
+            self.player_info.append(self.text_font.render('          Suspects:    ' + suspects[0], False, (255, 255, 255)))
+            for i in range(1, len(suspects)):
+                self.player_info.append(
+                    self.text_font.render('                                   ' + suspects[i], False, (255, 255, 255)))
+        if weapons:
+            self.player_info.append(self.text_font.render('          Weapons:     ' + weapons[0], False, (255, 255, 255)))
+            for i in range(1, len(weapons)):
+                self.player_info.append(
+                    self.text_font.render('                                   ' + weapons[i], False, (255, 255, 255)))
+        if rooms:
+            self.player_info.append(self.text_font.render('          Rooms:          ' + rooms[0], False, (255, 255, 255)))
+            for i in range(1, len(rooms)):
+                self.player_info.append(
+                    self.text_font.render('                                   ' + rooms[i], False, (255, 255, 255)))
         self.player_info.append(self.text_font.render(' ', False, (255, 255, 255)))
 
         self.PLAYER_INFO_HEIGHT = 0
@@ -192,6 +213,7 @@ class Options:
                                )
         self.suspect_menu.add_option('Give', self.give_card)
         self.suspect_menu.add_option('Pass', self.pass_turn)
+
     def init_move_menu(self, screen, directions):
         H_SIZE = 600
         W_SIZE = 600
@@ -314,6 +336,25 @@ class Options:
                                 window_width=screen_width
                                 )
         self.illegal_move_menu.add_line(self.error_messages[message_number])
+
+    def init_general_message_menu(self, screen, message_number):
+        message = self.general_messages[message_number]
+        if message_number == 0:
+            message = message + self.card_to_give
+        screen_width, screen_height = screen.get_size()
+        self.general_message_menu = pygameMenu.TextMenu(screen,
+                                dopause=False,
+                                font=pygameMenu.fonts.FONT_FRANCHISE,
+                                menu_color=(30, 50, 107),  # Background color
+                                menu_color_title=(120, 45, 30),
+                                menu_width=600,
+                                menu_height=200,
+                                onclose=pygameMenu.locals.PYGAME_MENU_CLOSE,  # Pressing ESC button does nothing
+                                title='General Message',
+                                window_height=screen_height,
+                                window_width=screen_width
+                                )
+        self.general_message_menu.add_line(message)
 
     def update_move_direction(self, c, **kwargs):
         self.move_direction = c
