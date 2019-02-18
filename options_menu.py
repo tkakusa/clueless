@@ -1,5 +1,6 @@
 import pygame, pygameMenu
 import copy
+import clue_tracker
 
 
 class Button:
@@ -22,8 +23,13 @@ class Options:
         self.PLAYER_INFO_HEIGHT = 0
         self.PLAYER_INFO_WIDTH = 0
         self.PLAYER_INFO_SURFACE_RATIO = 0
+        self.CLUETRACKER_WIDTH = 0
+        self.CLUETRACKER_HEIGHT = 0
+        self.CLUETRACTER_SURFACE_RATIO = 0
         self.SCALED_WIDTH = 0
         self.SCALED_HEIGHT = 0
+        self.TRACKER_SCALED_WIDTH = 180
+        self.TRACKER_SCALED_HEIGHT = 180
         self.button_starts = [0,0,0]
         self.card_given = False
         self.passed = False
@@ -44,7 +50,8 @@ class Options:
             "Illegal move, cannot move to a hallway with someone already present",
             "You can only suspect the room you are currently in",
             "You must be in a room before you can suspect anyone",
-            "The card you are trying to give is not one of the suspected cards"
+            "The card you are trying to give is not one of the suspected cards",
+            "Your hand contains one of the cards in the inquiry, you must give a card"
         ]
 
         self.general_messages = [
@@ -61,6 +68,7 @@ class Options:
 
         self.player_info_surface = None
         self.player_info = []
+        self.clue_tracker_surface = None
 
         # Menus
         self.accusation_menu = None
@@ -69,6 +77,10 @@ class Options:
         self.suspect_menu = None
         self.illegal_suspection_menu = None
         self.general_message_menu = None
+
+        # Create Clue tracker
+        self.clue_tracker = clue_tracker.ClueTracker()
+        self.update_clue_tracker()
 
         # Update title surface
         self.title_surface = self.title_font.render('THE CLUE-LESS GAME', False, (255, 255, 255))
@@ -96,6 +108,19 @@ class Options:
         pygame.draw.rect(screen, button.color, button.rect)
         pygame.draw.rect(screen, (0,0,0), black_rect)
         screen.blit(button.text, text_rect)
+
+    def update_clue_tracker(self):
+        box_size = self.clue_tracker.BOX_SIZE
+        row_count = self.clue_tracker.ROW_SIZE
+        col_count = self.clue_tracker.COL_SIZE
+
+        self.clue_tracker.draw()
+        self.CLUETRACKER_WIDTH = box_size * col_count + 200
+        self.CLUETRACKER_HEIGHT = box_size * row_count
+        self.CLUETRACTER_SURFACE_RATIO = self.CLUETRACKER_WIDTH/ self.CLUETRACKER_HEIGHT
+        self.clue_tracker_surface = pygame.Surface((self.CLUETRACKER_WIDTH, self.CLUETRACKER_HEIGHT))
+        self.clue_tracker_surface.blit(self.clue_tracker.clue_tracker_surface, [0,0])
+
 
 
     def update_player_info(self, player_number, player_name, character, suspects, weapons, rooms):
@@ -152,6 +177,10 @@ class Options:
         self.SCALED_WIDTH = width
         self.SCALED_HEIGHT = height
 
+    def update_tracker_scaled_values(self, width, height):
+        self.TRACKER_SCALED_WIDTH = width
+        self.TRACKER_SCALED_HEIGHT = height
+
     def check_button_clicked(self, position, offset):
         count = 0
         scaled_ratio = self.SCALED_HEIGHT / self.PLAYER_INFO_HEIGHT
@@ -164,6 +193,10 @@ class Options:
             if rect_x + rect_w > position[0] > rect_x and rect_y + rect_h > position[1] > rect_y:
                 return button.clicked()
             count = count + 1
+
+        offset2 = [offset[0] + self.SCALED_WIDTH + 40, offset[1]]
+        self.clue_tracker.clicked(position, offset2, self.TRACKER_SCALED_HEIGHT, self.TRACKER_SCALED_WIDTH)
+        self.update_clue_tracker()
 
         return "None"
 

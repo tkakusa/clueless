@@ -26,7 +26,7 @@ class Clueless:
         self.logo_image = pygame.image.load('images\logo2.png')
         self.house_image = pygame.image.load('images\house.jpg')
         self.start_image = pygame.image.load('images\start.png').convert_alpha()
-        self.map_image = pygame.image.load('images\map2.png')
+        self.map_image = pygame.image.load('images\map3.png')
 
         # Color variables
         self.BLACK = (0, 0, 0)
@@ -71,7 +71,7 @@ class Clueless:
         # Load the players
         cwd = os.getcwd()
         self.player_list = []
-        self.player_list.append(Player(cwd + "\\images\\players\\big_demon",     "LOUNGE",  1, "Miss Scarlet", "Red Demon"))
+        self.player_list.append(Player(cwd + "\\images\\players\\big_demon",     "H1",  1, "Miss Scarlet", "Red Demon"))
         self.player_list.append(Player(cwd + "\\images\\players\\big_zombie",    "H2",  2, "Prof. Plum", "Big Zombie"))
         self.player_list.append(Player(cwd + "\\images\\players\\green_girl",    "H4",  3, "Col. Mustard", "Female Elf"))
         self.player_list.append(Player(cwd + "\\images\\players\\green_guy",     "H7",  4, "Mrs. Peacock", "Male Elf"))
@@ -90,6 +90,7 @@ class Clueless:
 
         self.current_player = self.player_list[0]
         self.current_player.bool_is_active = True
+        self.options.update_clue_tracker()
         self.options.update_player_info(
             self.current_player.player_number,
             self.current_player.player_name,
@@ -106,7 +107,7 @@ class Clueless:
         # State enums
         self.program_state = "GAME"
         self.menu_state = "INIT"
-        self.game_state = "WAITING"
+        self.game_state = "FADE_IN"
         self.suspect_loop = "INIT"
         self.opacity_direction = "UP"
 
@@ -285,21 +286,30 @@ class Clueless:
 
 
     def update_options_menu(self):
+        # Title screen
+        title_ratio = self.options.title_surface.get_rect().h / self.options.title_surface.get_rect().w
+        width = int(self.OPTIONS_WIDTH)
+        title_height = int(width * title_ratio)
+        self.options.title_surface = pygame.transform.scale(self.options.title_surface, (width, title_height))
+
         # Options player info
         width = int(self.OPTIONS_WIDTH / 3)
         height = int(width * self.options.PLAYER_INFO_SURFACE_RATIO)
+        self.options.update_clue_tracker()
         self.options.update_scaled_values(width, height)
         self.options.player_info_surface = pygame.transform.scale(self.options.player_info_surface, (width, height))
+
+        # Options clue tracker
+        height = int((self.SCREEN_HEIGHT - title_height) * 3 / 4)
+        width = int(height * self.options.CLUETRACTER_SURFACE_RATIO)
+        self.options.update_tracker_scaled_values(width, height)
+        self.options.clue_tracker_surface = pygame.transform.scale(self.options.clue_tracker_surface, (width, height))
 
         # Option menu updates
         self.options.init_accusation_menu(self.screen)
         self.options.init_illegal_move_menu(self.screen, 0)
 
-        # Title screen
-        title_ratio = self.options.title_surface.get_rect().h / self.options.title_surface.get_rect().w
-        width = int(self.OPTIONS_WIDTH)
-        height = int(width * title_ratio)
-        self.options.title_surface = pygame.transform.scale(self.options.title_surface, (width, height))
+
 
     def main_loop(self):
         # Mutable variables
@@ -340,6 +350,7 @@ class Clueless:
                     pos = pygame.mouse.get_pos()
                     response = self.options.check_button_clicked(pos, (self.SCREEN_DIVIDER_START + 10,
                                                             self.options.title_surface.get_size()[1]))
+                    self.update_options_menu()
                     if response == "Move":
                         self.options.init_move_menu(self.screen,
                                                    self.MAP_DICT[self.current_player.sprite_room]["DIRECTIONS"])
@@ -441,8 +452,10 @@ class Clueless:
             self.draw_map()
             self.fade_screen(self.screen_opacity)
             if self.screen_opacity < 0:
+                self.options.clue_tracker.update_checkboxes(self.current_player.clue_grid)
                 self.game_state = "WAITING"
         elif self.game_state == "WAITING":
+            self.update_options_menu()
             # Drwaw the map
             self.draw_map()
 
@@ -520,6 +533,7 @@ class Clueless:
                 self.current_player.what_cards,
                 self.current_player.where_cards
             )
+            self.options.clue_tracker.update_checkboxes(self.current_player.clue_grid)
             if self.remove_player:
                 self.remove_player = False
                 self.player_list[player_number].bool_still_playing = False
@@ -567,12 +581,16 @@ class Clueless:
             elif self.suspect_loop == "WAIT_FOR_RESPONSE":
                 if self.options.passed:
                     self.options.passed = False
-                    self.options.suspect_menu.disable()
-                    self.question_order.pop(0)
-                    if self.question_order:
-                        self.suspect_loop = "CHOOSE_RESPONDER"
+                    responder = self.player_list[self.question_order[0]]
+                    if (self.options.who_accusation in responder.who_cards or self.options.what_accusation in responder.what_cards or self.options.where_accusation in responder.where_cards):
+                        self.print_error_message(4)
                     else:
-                        self.game_state = "CHANGE_PLAYER"
+                        self.options.suspect_menu.disable()
+                        self.question_order.pop(0)
+                        if self.question_order:
+                            self.suspect_loop = "CHOOSE_RESPONDER"
+                        else:
+                            self.game_state = "CHANGE_PLAYER"
                 elif self.options.card_given:
                     self.options.card_given = False
                     chosen_card = self.options.card_to_give
@@ -622,6 +640,8 @@ class Clueless:
 
         options_row = self.options.title_surface.get_size()[1]
         self.screen.blit(self.options.player_info_surface, (self.SCREEN_DIVIDER_START + 10, options_row))
+        self.screen.blit(self.options.clue_tracker_surface,
+                         (self.SCREEN_DIVIDER_START + 40 + self.options.player_info_surface.get_rect().w, options_row))
 
         # Print screen separator
         line_start = (self.SCREEN_DIVIDER_START, 0)

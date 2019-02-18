@@ -1,6 +1,7 @@
 import glob
 import pygame
 import copy
+from clue_tracker import Checkbox
 
 class Player:
 
@@ -29,6 +30,7 @@ class Player:
         self.who_cards = []
         self.where_cards = []
         self.what_cards = []
+        self.clue_grid = []
 
         # Font
         self.font = pygame.font.SysFont('Comic Sans MS', 30)
@@ -45,6 +47,16 @@ class Player:
         if temp_size[0] > 16:
             self.sprite_type = "LARGE"
         self.size_ratio = temp_size[1] / temp_size[0]
+
+        # Init clue grid
+        self.init_clue_grid()
+
+    def init_clue_grid(self):
+        for row in range(0, 25):
+            row_array = []
+            for col in range(0, 6):
+                row_array.append(Checkbox([row, col]))
+            self.clue_grid.append(row_array)
 
     def update_cards(self, card_type, card):
         if card_type == "WHO":
